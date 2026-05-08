@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../database/database_helper.dart';
 import '../models/task.dart';
+import '../widgets/task_tile.dart'; // ← thêm import này
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -20,28 +21,44 @@ class _HomeScreenState extends State<HomeScreen> {
     loadTasks();
   }
 
+  // ← THÊM: dọn dẹp controller khi widget bị xóa khỏi cây widget
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
   void loadTasks() async {
-    final data = await DatabaseHelper.instance.getTasks();
-    setState(() {
-      tasks = data;
-    });
+    try { // ← THÊM: bắt lỗi nếu DB có vấn đề
+      final data = await DatabaseHelper.instance.getTasks();
+      setState(() {
+        tasks = data;
+      });
+    } catch (e) {
+      debugPrint('Lỗi load tasks: $e');
+    }
   }
 
   void addTask() async {
-
-    if(controller.text.isEmpty) return;
-
-    await DatabaseHelper.instance.insertTask(
-      Task(title: controller.text)
-    );
-
-    controller.clear();
-    loadTasks();
+    if (controller.text.isEmpty) return;
+    try {
+      await DatabaseHelper.instance.insertTask(
+        Task(title: controller.text)
+      );
+      controller.clear();
+      loadTasks();
+    } catch (e) {
+      debugPrint('Lỗi add task: $e');
+    }
   }
 
   void deleteTask(int id) async {
-    await DatabaseHelper.instance.deleteTask(id);
-    loadTasks();
+    try {
+      await DatabaseHelper.instance.deleteTask(id);
+      loadTasks();
+    } catch (e) {
+      debugPrint('Lỗi delete task: $e');
+    }
   }
 
   @override
@@ -50,15 +67,12 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text("Todo SQLite"),
       ),
-
       body: Column(
         children: [
-
           Padding(
             padding: const EdgeInsets.all(10),
             child: Row(
               children: [
-
                 Expanded(
                   child: TextField(
                     controller: controller,
@@ -67,32 +81,22 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ),
-
                 IconButton(
                   icon: const Icon(Icons.add),
                   onPressed: addTask,
                 )
-
               ],
             ),
           ),
-
           Expanded(
             child: ListView.builder(
               itemCount: tasks.length,
-              itemBuilder: (context,index){
-
+              itemBuilder: (context, index) {
                 final task = tasks[index];
-
-                return ListTile(
-                  title: Text(task.title),
-
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete),
-                    onPressed: (){
-                      deleteTask(task.id!);
-                    },
-                  ),
+                // ← SỬA: dùng TaskTile thay vì ListTile trực tiếp
+                return TaskTile(
+                  task: task,
+                  onDelete: () => deleteTask(task.id!),
                 );
               },
             ),
